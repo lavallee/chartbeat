@@ -26,6 +26,7 @@ Copyright 2009 Chartbeat Inc.
 add_option('chartbeat_userid');
 add_option('chartbeat_apikey');
 add_option('chartbeat_widgetconfig');
+add_option('chartbeat_enable_newsbeat');
 
 
 function chartbeat_menu() {
@@ -133,10 +134,16 @@ In order for the widget to work, copy your API key into the space below.
 <tr><th scope="row">API key</th>
 <td><input size="30" type="text" name="chartbeat_apikey" value="<?php echo get_option('chartbeat_apikey'); ?>" /></td>
 </tr></table>
+Check this box if you have enabled <a href="http://chartbeat.com/newsbeat/">newsbeat</a>
+<table class="form-table">
+<tr><th scope="row">Enable newsbeat?</th>
+<td><input type="checkbox" name="chartbeat_enable_newsbeat" <?php echo ( get_option('chartbeat_enable_newsbeat') ) ? 'checked="checked"' : ''; ?>" /></td>
+</tr></table>
+
 
 <input type="hidden" name="action" value="update" />
 <input type="hidden" id="chartbeat_widgetconfig" name="chartbeat_widgetconfig" value="{}" />
-<input type="hidden" name="page_options" value="chartbeat_userid,chartbeat_apikey,chartbeat_widgetconfig"/>
+<input type="hidden" name="page_options" value="chartbeat_userid,chartbeat_apikey,chartbeat_widgetconfig,chartbeat_enable_newsbeat"/>
 
 <p class="submit">
 <input type="submit" class="button-primary" value="<?php _e('Save Changes') ?>" />
@@ -152,7 +159,7 @@ function chartbeat_register_settings() {
 	register_setting('chartbeat-options','chartbeat_userid');
 	register_setting('chartbeat-options','chartbeat_apikey');
 	register_setting('chartbeat-options','chartbeat_widgetconfig');
-	
+        register_setting('chartbeat-options','chartbeat_enable_newsbeat');
 }
 
 function add_chartbeat_head() {
@@ -164,7 +171,36 @@ function add_chartbeat_footer() {
   if ($user_id) {
 ?>
 <script type="text/javascript">
-var _sf_async_config={uid:<?php print $user_id ?>};
+var _sf_async_config={};
+_sf_async_config.uid = <?php print $user_id ?>;
+<?php $enable_newsbeat = get_option('chartbeat_enable_newsbeat');
+if ( $enable_newsbeat ) { ?>
+_sf_async_config.domain = '<?php echo esc_attr( $_SERVER[ 'HTTP_HOST' ] ); ?>';
+<?php 
+// Only add these values on blog posts use the queried object in case there
+// are multiple Loops on the page.
+if ( is_single() ) {
+    global $wp_query;
+    $post = $wp_query->get_queried_object();
+
+    // Use the author's display name 
+    $author = esc_attr(get_the_author_meta('display_name', $post->post_author)); 
+    printf("_sf_async_config.authors = '%s';\n", $author);
+
+    // Use the post's categories as sections
+    $cats = get_the_terms($post->ID, 'category');
+    $cat_names = array();
+    foreach ($cats as $cat) {
+        $cat_names[] = '"' . esc_attr($cat->name) . '"';
+    }
+    if ( count( $cat_names ) ) {
+        printf("_sf_async_config.sections = [%s];\n", 
+            implode(', ', $cat_names));
+    }
+}
+?>
+<?php } // if $enable_newsbeat ?>
+
 (function(){
   function loadChartbeat() {
     window._sf_endpt=(new Date()).getTime();
